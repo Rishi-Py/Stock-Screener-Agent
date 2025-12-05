@@ -19,9 +19,9 @@ def validate_symbol(symbol: str) -> bool:
     if not symbol or not isinstance(symbol, str):
         return False
     
-    # Basic validation: 1-5 uppercase letters only
-    # Lowercase is considered invalid to enforce proper formatting
-    pattern = r'^[A-Z]{1,5}$'
+    # Basic validation: 1-10 uppercase letters
+    # Allows for international symbols and ETFs
+    pattern = r'^[A-Z]{1,10}$'
     return bool(re.match(pattern, symbol))
 
 

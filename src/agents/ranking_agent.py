@@ -236,7 +236,7 @@ class RankingAgent(BaseAgent):
         if fcf > 0:
             score += 6
             # Bonus for strong FCF
-            revenue = data.get("revenue", 1)
+            revenue = data.get("revenue", 0)
             if revenue > 0 and (fcf / revenue) >= 0.10:
                 score += 2  # Extra points for 10%+ FCF margin
         
@@ -269,11 +269,11 @@ class RankingAgent(BaseAgent):
             score = 0
         
         # Try to extract growth score from AI analysis
-        growth_score_match = re.search(r'growth score[:\s]+(\d+)', analysis_text)
+        growth_score_match = re.search(r'growth\s*score[:\s]*(\d+(?:\.\d+)?)', analysis_text)
         if growth_score_match:
-            ai_growth_score = int(growth_score_match.group(1))
+            ai_growth_score = float(growth_score_match.group(1))
             # Adjust score based on AI's growth rating (1-10 scale)
-            score = (ai_growth_score / 10) * 25
+            score = min((ai_growth_score / 10) * 25, 25)  # Cap at 25 points
         
         return score, recommendation
     

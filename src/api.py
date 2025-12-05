@@ -73,19 +73,14 @@ def screen_stocks():
         coordinator = MultiAgentCoordinator(config)
         
         # Run the screening workflow
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
         if batch_size > 1:
-            results = loop.run_until_complete(
+            results = asyncio.run(
                 coordinator.screen_stocks_parallel(symbols, batch_size)
             )
         else:
-            results = loop.run_until_complete(
+            results = asyncio.run(
                 coordinator.screen_stocks(symbols)
             )
-        
-        loop.close()
         
         logger.info(f"Screening completed: {results['qualified_stocks']} qualified stocks")
         
@@ -145,12 +140,9 @@ def quick_screen():
         coordinator = MultiAgentCoordinator(config)
         
         # Run the screening workflow
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        results = loop.run_until_complete(
+        results = asyncio.run(
             coordinator.screen_stocks_parallel(symbols, batch_size=5)
         )
-        loop.close()
         
         return jsonify({
             "universe": universe_type,

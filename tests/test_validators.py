@@ -19,7 +19,7 @@ def test_validate_symbol_invalid():
     """Test validation of invalid symbols."""
     assert not validate_symbol("")
     assert not validate_symbol("123")
-    assert not validate_symbol("TOOLONG")
+    assert not validate_symbol("WAYTOOLONGSY")  # More than 10 chars
     assert not validate_symbol("abc")
     assert not validate_symbol(None)
     assert not validate_symbol("AA-PL")

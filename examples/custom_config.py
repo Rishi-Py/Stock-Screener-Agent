@@ -65,7 +65,10 @@ async def main():
             # Key metrics
             metrics = stock['fundamentals']
             print(f"   Key Metrics:")
-            print(f"     - Revenue Growth: {metrics['revenue_growth'] * 100:.1f}%")
+            if metrics.get('revenue_growth') is not None:
+                print(f"     - Revenue Growth: {metrics['revenue_growth'] * 100:.1f}%")
+            else:
+                print(f"     - Revenue Growth: N/A")
             print(f"     - P/E Ratio: {metrics['pe_ratio']:.1f}" if metrics['pe_ratio'] else "     - P/E Ratio: N/A")
             print(f"     - Profit Margin: {metrics['profit_margin'] * 100:.1f}%" if metrics['profit_margin'] else "     - Profit Margin: N/A")
     else:
