@@ -1,0 +1,186 @@
+{
+  "name": "Scheduled Stock Screening",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "notes": "Runs every weekday at 9 AM"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Define stock universe to screen\n// This could be customized or fetched from a database\nconst stockUniverse = [\n  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA',\n  'META', 'TSLA', 'AMD', 'CRM', 'ADBE',\n  'NFLX', 'PYPL', 'SHOP', 'SQ', 'SNOW'\n];\n\nreturn {\n  symbols: stockUniverse,\n  screening_date: new Date().toISOString().split('T')[0]\n};"
+      },
+      "id": "define-universe",
+      "name": "Define Stock Universe",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5000/api/screen",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "symbols",
+              "value": "={{ $json.symbols }}"
+            },
+            {
+              "name": "batch_size",
+              "value": "5"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "execute-screening",
+      "name": "Execute Screening",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process and format results for storage\nconst results = $input.item.json;\nconst topPicks = results.top_picks || [];\n\nreturn {\n  screening_date: new Date().toISOString().split('T')[0],\n  total_analyzed: results.stocks_ranked || 0,\n  qualified_count: results.qualified_stocks || 0,\n  top_picks: topPicks,\n  summary: {\n    best_pick: topPicks[0] || null,\n    avg_score: topPicks.length > 0 \n      ? topPicks.reduce((sum, s) => sum + s.score, 0) / topPicks.length \n      : 0\n  }\n};"
+      },
+      "id": "format-for-storage",
+      "name": "Format for Storage",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "fileId": "YOUR_GOOGLE_SHEET_ID",
+        "sheetName": "Screening Results",
+        "columns": "date,total_analyzed,qualified_count,best_pick_symbol,best_pick_score"
+      },
+      "id": "save-to-sheets",
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 2,
+      "position": [1050, 300],
+      "disabled": true,
+      "notes": "Optional: Enable and configure to save results"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generate email summary\nconst summary = $input.item.json.summary;\nconst topPicks = $input.item.json.top_picks;\n\nconst emailBody = `\n<h2>Daily Stock Screening Results</h2>\n<p><strong>Date:</strong> ${$input.item.json.screening_date}</p>\n<p><strong>Stocks Analyzed:</strong> ${$input.item.json.total_analyzed}</p>\n<p><strong>Qualified Stocks:</strong> ${$input.item.json.qualified_count}</p>\n\n<h3>Top Picks:</h3>\n<ol>\n${topPicks.slice(0, 5).map(stock => `\n  <li>\n    <strong>${stock.symbol} - ${stock.company_name}</strong><br>\n    Score: ${stock.score.toFixed(2)}<br>\n    Recommendation: ${stock.ai_recommendation}<br>\n    Growth: ${(stock.fundamentals.revenue_growth * 100).toFixed(2)}%\n  </li>\n`).join('')}\n</ol>\n`;\n\nreturn {\n  subject: `Stock Screening Results - ${$input.item.json.screening_date}`,\n  body: emailBody\n};"
+      },
+      "id": "format-email",
+      "name": "Format Email",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 500]
+    },
+    {
+      "parameters": {
+        "fromEmail": "screening@example.com",
+        "toEmail": "recipient@example.com",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "text": "={{ $json.body }}"
+      },
+      "id": "send-email",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1050, 500],
+      "disabled": true,
+      "notes": "Optional: Enable and configure to send email notifications"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Define Stock Universe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Define Stock Universe": {
+      "main": [
+        [
+          {
+            "node": "Execute Screening",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Screening": {
+      "main": [
+        [
+          {
+            "node": "Format for Storage",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format for Storage": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "saveExecutionProgress": true,
+    "timezone": "America/New_York"
+  },
+  "tags": [
+    {
+      "name": "stock-screening"
+    },
+    {
+      "name": "scheduled"
+    }
+  ]
+}
