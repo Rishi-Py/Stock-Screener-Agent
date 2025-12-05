@@ -1,0 +1,139 @@
+{
+  "name": "Stock Screener Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "stock-screener",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "stock-screener-webhook"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract stock symbols from webhook payload\nconst symbols = $input.item.json.symbols || [];\n\nif (!symbols || symbols.length === 0) {\n  throw new Error('No symbols provided');\n}\n\nreturn {\n  symbols: symbols,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "extract-symbols",
+      "name": "Extract Symbols",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5000/api/screen",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "symbols",
+              "value": "={{ $json.symbols }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "call-screener-api",
+      "name": "Call Screener API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process screening results\nconst results = $input.item.json;\n\n// Extract top picks\nconst topPicks = results.top_picks || [];\n\n// Format for response\nreturn {\n  total_analyzed: results.stocks_ranked || 0,\n  qualified_count: results.qualified_stocks || 0,\n  top_picks: topPicks.map(stock => ({\n    symbol: stock.symbol,\n    company: stock.company_name,\n    score: stock.score,\n    recommendation: stock.ai_recommendation,\n    key_metrics: stock.fundamentals\n  })),\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "format-results",
+      "name": "Format Results",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "id": "respond-to-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Log error details\nconst error = $input.item.json.error || 'Unknown error';\n\nreturn {\n  status: 'error',\n  message: error,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "error-handler",
+      "name": "Error Handler",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [650, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Symbols",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Symbols": {
+      "main": [
+        [
+          {
+            "node": "Call Screener API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Screener API": {
+      "main": [
+        [
+          {
+            "node": "Format Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Results": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "timezone": "America/New_York"
+  },
+  "tags": [
+    {
+      "name": "stock-screening"
+    }
+  ]
+}
